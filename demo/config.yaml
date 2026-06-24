@@ -1,0 +1,19 @@
+# Prolific IDs and question mapping for demo/prolific.py
+#
+# See demo/PROLIFIC.md for a full explanation of every field.
+
+# Prolific-native survey ID (required to fetch written answers).
+# Find in: Prolific survey builder URL, or via the Surveys API.
+# Not the same as study_id.
+survey_id: null
+
+# Maps export CSV columns (left) to Prolific sources (right).
+#
+# For manager_id: use "participant_id" (a top-level field on each survey response).
+# For worker_type, text_type, raw_text: use the question_id UUID from your
+# Prolific survey builder (visible in the survey editor or API responses).
+field_mapping:
+  manager_id: participant_id
+  worker_type: REPLACE_WITH_WORKER_TYPE_QUESTION_ID
+  text_type: REPLACE_WITH_TEXT_TYPE_QUESTION_ID
+  raw_text: REPLACE_WITH_RAW_TEXT_QUESTION_ID

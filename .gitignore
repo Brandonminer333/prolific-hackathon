@@ -1,0 +1,4 @@
+.env
+.venv/
+data/submissions.csv
+data/raw_export.csv

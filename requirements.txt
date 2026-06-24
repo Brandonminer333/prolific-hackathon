@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+pydantic
+pandas
+scipy
+statsmodels
+google-genai
+python-dotenv
+requests
+pyyaml
+pytest
+httpx
+pre-commit

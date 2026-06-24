@@ -1,0 +1,7 @@
+manager_id,worker_type,text_type,raw_text
+demo_r1,remote,performance_review,"Needs frequent check-ins and close supervision on deadlines."
+demo_r2,remote,performance_review,"Reliable contributor but I prefer to review work before it goes out."
+demo_r3,remote,performance_review,"Strong independent performer who consistently exceeds expectations."
+demo_ip1,in_person,performance_review,"Excellent teammate who I trust to represent the team without oversight."
+demo_ip2,in_person,performance_review,"Consistently delivers high-quality work with minimal guidance."
+demo_ip3,in_person,performance_review,"Solid performance this quarter with good collaboration."
