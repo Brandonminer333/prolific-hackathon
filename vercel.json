@@ -1,4 +1,4 @@
 {
-  "buildCommand": "node scripts/write-frontend-config.js",
+  "buildCommand": "node write-config.js",
   "outputDirectory": "frontend"
 }

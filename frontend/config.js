@@ -1,3 +1,2 @@
-// Copy to config.js for local testing, or set API_BASE in Vercel env vars (build generates config.js).
-// Example: window.API_BASE = "https://prolific-bias-audit-api-xxxxx-uw.a.run.app";
+// Generated at build time on Vercel. For local static hosting, set your Cloud Run URL here.
 window.API_BASE = "";
