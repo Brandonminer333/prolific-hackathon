@@ -11,28 +11,6 @@ function resolveApiBase() {
 
 const API_BASE = resolveApiBase();
 
-//#region agent log
-function debugLog(hypothesisId, message, data) {
-    fetch("http://127.0.0.1:7720/ingest/12ac00c5-0739-4afa-80d0-31bd9123d0e6", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a79914" },
-        body: JSON.stringify({
-            sessionId: "a79914",
-            hypothesisId,
-            location: "frontend/app.js",
-            message,
-            data,
-            timestamp: Date.now(),
-        }),
-    }).catch(() => {});
-}
-debugLog("H1", "api base resolved", {
-    apiBase: API_BASE,
-    hostname: location.hostname,
-    configured: window.API_BASE || "",
-});
-//#endregion agent log
-
 function ensureApiBase() {
     if (API_BASE) {
         return API_BASE;
@@ -166,9 +144,6 @@ function validateSubmissions(records) {
 async function postSubmissions(submissions) {
     const base = ensureApiBase();
     const url = `${base}/submit`;
-    //#region agent log
-    debugLog("H1", "postSubmissions start", { url, count: submissions.length });
-    //#endregion agent log
     let response;
     try {
         response = await fetch(url, {
@@ -177,13 +152,6 @@ async function postSubmissions(submissions) {
             body: JSON.stringify({ submissions }),
         });
     } catch (error) {
-        //#region agent log
-        debugLog("H2", "postSubmissions network error", {
-            url,
-            name: error?.name,
-            message: error?.message,
-        });
-        //#endregion agent log
         throw new Error(`Network error calling ${url}. Check API_BASE and CORS. (${error?.message || error})`);
     }
 
@@ -202,13 +170,6 @@ async function fetchResults() {
     try {
         response = await fetch(url);
     } catch (error) {
-        //#region agent log
-        debugLog("H2", "fetchResults network error", {
-            url,
-            name: error?.name,
-            message: error?.message,
-        });
-        //#endregion agent log
         throw new Error(`Network error calling ${url}. Check API_BASE and CORS. (${error?.message || error})`);
     }
     if (!response.ok) {

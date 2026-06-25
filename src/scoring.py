@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import re
+import time
 
 from dotenv import load_dotenv
 from google import genai
@@ -14,6 +15,13 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 MODEL_NAME = "gemini-2.5-flash"
+BATCH_POLL_INTERVAL_SECONDS = 5
+BATCH_COMPLETED_STATES = {
+    "JOB_STATE_SUCCEEDED",
+    "JOB_STATE_FAILED",
+    "JOB_STATE_CANCELLED",
+    "JOB_STATE_EXPIRED",
+}
 
 SCORING_PROMPT = """You are scoring a manager's written evaluation of an employee.
 
@@ -73,6 +81,43 @@ def _extract_json(text: str) -> dict:
         return json.loads(match.group())
 
 
+def _build_scoring_request(submission: SubmissionInput) -> dict:
+    return {
+        "contents": [
+            {
+                "parts": [{"text": SCORING_PROMPT.format(text=submission.raw_text)}],
+                "role": "user",
+            }
+        ],
+        "config": {
+            "response_mime_type": "application/json",
+            "temperature": 0.0,
+        },
+    }
+
+
+def _parse_scored_submission(
+    submission: SubmissionInput, raw: str
+) -> ScoredSubmission | None:
+    if not raw:
+        logger.warning(
+            "Empty Gemini response for manager_id=%s", submission.manager_id
+        )
+        return None
+
+    payload = _extract_json(raw)
+    scores = GeminiScores.model_validate(payload)
+
+    return ScoredSubmission(
+        manager_id=submission.manager_id,
+        worker_type=submission.worker_type,
+        text_type=submission.text_type,
+        raw_text=submission.raw_text,
+        trust_score=scores.trust_score / 100.0,
+        criticism_score=scores.criticism_score / 100.0,
+    )
+
+
 def score_submission(submission: SubmissionInput) -> ScoredSubmission | None:
     """Score a single submission via Gemini. Returns None on failure."""
     try:
@@ -85,23 +130,7 @@ def score_submission(submission: SubmissionInput) -> ScoredSubmission | None:
                 temperature=0.0,
             ),
         )
-        raw = response.text
-        if not raw:
-            logger.warning(
-                "Empty Gemini response for manager_id=%s", submission.manager_id)
-            return None
-
-        payload = _extract_json(raw)
-        scores = GeminiScores.model_validate(payload)
-
-        return ScoredSubmission(
-            manager_id=submission.manager_id,
-            worker_type=submission.worker_type,
-            text_type=submission.text_type,
-            raw_text=submission.raw_text,
-            trust_score=scores.trust_score / 100.0,
-            criticism_score=scores.criticism_score / 100.0,
-        )
+        return _parse_scored_submission(submission, response.text or "")
     except Exception as exc:
         logger.warning(
             "Failed to score submission for manager_id=%s: %s",
@@ -109,3 +138,99 @@ def score_submission(submission: SubmissionInput) -> ScoredSubmission | None:
             exc,
         )
         return None
+
+
+def _wait_for_batch_job(client: genai.Client, job_name: str):
+    batch_job = client.batches.get(name=job_name)
+    while batch_job.state.name not in BATCH_COMPLETED_STATES:
+        time.sleep(BATCH_POLL_INTERVAL_SECONDS)
+        batch_job = client.batches.get(name=job_name)
+    return batch_job
+
+
+def score_submissions_batch(
+    submissions: list[SubmissionInput],
+) -> tuple[list[ScoredSubmission], list[tuple[int, str]]]:
+    """Score submissions via the Gemini Batch API.
+
+    Returns (scored_submissions, failed_items) where each failed item is
+    (row_index, reason).
+    """
+    if not submissions:
+        return [], []
+
+    client = _get_client()
+    inline_requests = [_build_scoring_request(s) for s in submissions]
+
+    batch_job = client.batches.create(
+        model=MODEL_NAME,
+        src=inline_requests,
+        config={"display_name": "prolific-scoring-batch"},
+    )
+
+    batch_job = _wait_for_batch_job(client, batch_job.name)
+    scored: list[ScoredSubmission] = []
+    failed: list[tuple[int, str]] = []
+
+    if batch_job.state.name != "JOB_STATE_SUCCEEDED":
+        error_msg = (
+            str(batch_job.error)
+            if batch_job.error
+            else f"Batch job ended with state {batch_job.state.name}"
+        )
+        for index in range(len(submissions)):
+            failed.append((index, error_msg))
+        return scored, failed
+
+    inline_responses = batch_job.dest.inlined_responses or []
+    for index, (submission, inline_response) in enumerate(
+        zip(submissions, inline_responses)
+    ):
+        if inline_response.error:
+            failed.append(
+                (
+                    index,
+                    f"Gemini batch request failed: {inline_response.error}",
+                )
+            )
+            continue
+        if not inline_response.response:
+            failed.append(
+                (
+                    index,
+                    "Gemini scoring failed or returned invalid JSON.",
+                )
+            )
+            continue
+
+        try:
+            result = _parse_scored_submission(
+                submission, inline_response.response.text or ""
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to parse batch response for manager_id=%s: %s",
+                submission.manager_id,
+                exc,
+            )
+            result = None
+
+        if result is None:
+            failed.append(
+                (
+                    index,
+                    "Gemini scoring failed or returned invalid JSON.",
+                )
+            )
+            continue
+        scored.append(result)
+
+    for index in range(len(inline_responses), len(submissions)):
+        failed.append(
+            (
+                index,
+                "Gemini scoring failed or returned no response.",
+            )
+        )
+
+    return scored, failed

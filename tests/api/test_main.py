@@ -31,15 +31,20 @@ def test_results_returns_empty_payload_when_no_csv(client, submissions_csv_path)
 
 
 @pytest.mark.integration
-@patch("api.main.score_submission")
+@patch("api.main.score_submissions_batch")
 def test_submit_scores_and_persists_rows(mock_score, client, submissions_csv_path):
-    mock_score.return_value = ScoredSubmission(
-        manager_id="mgr-1",
-        worker_type="remote",
-        text_type="performance_review",
-        raw_text="Independent contributor.",
-        trust_score=0.8,
-        criticism_score=0.2,
+    mock_score.return_value = (
+        [
+            ScoredSubmission(
+                manager_id="mgr-1",
+                worker_type="remote",
+                text_type="performance_review",
+                raw_text="Independent contributor.",
+                trust_score=0.8,
+                criticism_score=0.2,
+            )
+        ],
+        [],
     )
 
     response = client.post(
@@ -68,9 +73,12 @@ def test_submit_scores_and_persists_rows(mock_score, client, submissions_csv_pat
 
 
 @pytest.mark.integration
-@patch("api.main.score_submission")
+@patch("api.main.score_submissions_batch")
 def test_submit_reports_failed_rows(mock_score, client, submissions_csv_path):
-    mock_score.return_value = None
+    mock_score.return_value = (
+        [],
+        [(0, "Gemini scoring failed or returned invalid JSON.")],
+    )
 
     response = client.post(
         "/submit",

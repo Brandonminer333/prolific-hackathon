@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.analysis import analyze_submissions
 from src.models import FailedSubmission, ResultsResponse, ScoredSubmission, SubmitRequest, SubmitResponse
-from src.scoring import score_submission
+from src.scoring import score_submissions_batch
 
 load_dotenv()
 
@@ -82,20 +82,11 @@ def health_check() -> dict[str, str]:
 
 @app.post("/submit", response_model=SubmitResponse)
 def submit(request: SubmitRequest) -> SubmitResponse:
-    scored: list[ScoredSubmission] = []
-    failed: list[FailedSubmission] = []
-
-    for index, submission in enumerate(request.submissions):
-        result = score_submission(submission)
-        if result is None:
-            failed.append(
-                FailedSubmission(
-                    row_index=index,
-                    reason="Gemini scoring failed or returned invalid JSON.",
-                )
-            )
-            continue
-        scored.append(result)
+    scored, batch_failed = score_submissions_batch(request.submissions)
+    failed = [
+        FailedSubmission(row_index=index, reason=reason)
+        for index, reason in batch_failed
+    ]
 
     _append_submissions(scored)
     logger.info("Scored %s submissions; %s failed", len(scored), len(failed))
