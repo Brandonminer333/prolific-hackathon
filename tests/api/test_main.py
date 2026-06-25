@@ -24,10 +24,10 @@ def test_results_returns_empty_payload_when_no_csv(client, submissions_csv_path)
     assert not submissions_csv_path.exists()
 
     response = client.get("/results")
-  assert response.status_code == 200
-  payload = response.json()
-  assert payload["submissions"] == []
-  assert payload["interpretation"] == ["No submissions have been scored yet."]
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["submissions"] == []
+    assert payload["interpretation"] == ["No submissions have been scored yet."]
 
 
 @pytest.mark.integration

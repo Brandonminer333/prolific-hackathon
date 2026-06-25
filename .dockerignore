@@ -1,0 +1,15 @@
+.venv
+.git
+.github
+.pytest_cache
+__pycache__
+*.pyc
+.env
+.env.*
+frontend
+demo
+tests
+data/submissions.csv
+data/raw_export.csv
+README.md
+vercel.json

@@ -3,7 +3,7 @@ repos:
     hooks:
       - id: pytest-unit-functional
         name: pytest unit and functional tests
-        entry: bash -c 'cd "$(git rev-parse --show-toplevel)" && .venv/bin/pytest -m "unit or functional"'
+        entry: bash scripts/run-unit-functional-tests.sh
         language: system
         pass_filenames: false
         always_run: true
